@@ -1,0 +1,79 @@
+# Runtime settings. Secrets live in .env / your vault, never here.
+active_profile: zoho                  # what worker.py and the webhook use. AML_PROFILE overrides
+
+profiles:
+
+  dev:                                # fully offline: local files in, local files out
+    source: manual_upload
+    source_config:
+      paths: []
+      sender_filter: "aml-reporting@operator.example"
+    sink: local
+    sink_config: {root: "./data/outbox"}
+    remote_folder: "AML/Triage"
+    ticket_system: mock
+    ticket_config: {path: "./data/runs/tickets.jsonl"}
+    explain_mode: template            # template | anthropic
+    explain_tiers: [HIGH, MEDIUM]
+    mark_processed: false
+
+  zoho:                               # the primary production target
+    source: zoho_mail                 # mail in
+    source_config:
+      datacenter: "${ZOHO_DC:-in}"    # com | eu | in | com.au  - India account
+      account_id: "${ZOHO_ACCOUNT_ID}"
+      folder_id: "${ZOHO_FOLDER_ID}"
+      sender_filter: "${ZOHO_SENDER_FILTER}"      # substring match on fromAddress
+      subject_filter: "${ZOHO_SUBJECT_FILTER:-}"  # optional; empty = any subject
+      limit: 25
+    sink: zoho_workdrive_mail         # WorkDrive out + high-risk mail alert
+    sink_config:
+      datacenter: "${ZOHO_DC:-in}"
+      folder_id: "${ZOHO_WORKDRIVE_FOLDER_ID}"
+      create_share_link: true
+      account_id: "${ZOHO_ACCOUNT_ID}"       # same mailbox the intake is read from
+      from_address: "${ZOHO_ALERT_FROM}"     # must be an address that mailbox can send as
+      recipients: "${ZOHO_ALERT_TO}"         # comma-separated
+      alert_tiers: [HIGH]             # who triggers the mail
+      attach_workbook: false          # false = link to WorkDrive only
+      send_when_empty: false          # no HIGH players -> no mail
+      max_rows_in_mail: 50
+    remote_folder: "AML/Triage"
+    ticket_system: odoo               # HIGH/MEDIUM cases become Odoo tickets
+    ticket_config:                    # non-secret config here, credentials in .env
+      url: "${ODOO_URL}"
+      db: "${ODOO_DB}"                # Odoo Online: the subdomain
+      model: "${ODOO_MODEL:-project.task}"      # helpdesk.ticket on Enterprise
+      project_id: "${ODOO_PROJECT_ID}"          # REQUIRED for project.task, else tasks are invisible
+      team_id: "${ODOO_TEAM_ID:-}"    # helpdesk teams only
+      user: "${ODOO_USER}"            # -.
+      password: "${ODOO_PASSWORD}"    # -' credentials: .env only, never a literal here
+      priority_map: {HIGH: "3", MEDIUM: "2", LOW: "1"}
+    explain_mode: template            # anthropic needs ANTHROPIC_API_KEY
+    explain_tiers: [HIGH, MEDIUM]
+    mark_processed: true
+
+  microsoft:                          # Outlook in, SharePoint out, Teams notify
+    source: outlook_graph
+    source_config:
+      mailbox: "aml-intake@operator.example"
+      folder: "Inbox"
+      sender_filter: "aml-reporting@operator.example"
+    sink: sharepoint
+    sink_config:
+      site_id: "${MS_SITE_ID}"
+      drive_id: "${MS_DRIVE_ID}"
+    remote_folder: "AML/Triage"
+    ticket_system: gitlab
+    ticket_config:
+      base_url: "https://gitlab.com"
+      project_id: "12345678"
+    explain_mode: anthropic
+    explain_tiers: [HIGH, MEDIUM]
+    mark_processed: true
+
+scheduler:
+  enabled: true
+  poll_interval_seconds: 60           # how often to check the mailbox (60 for a demo, 300 in production)
+  business_hours_only: false
+  max_runs_per_hour: 12

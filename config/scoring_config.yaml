@@ -1,0 +1,150 @@
+# =============================================================================
+# AML Scoring Configuration  -- single source of truth
+# Derived 1:1 from AML-Scoring-Framework.pdf (sections 4-11).
+# Change scores/thresholds HERE ONLY. No magic numbers in code.
+# =============================================================================
+
+meta:
+  framework_version: "1.0"
+  source_document: "AML-Scoring-Framework.pdf"
+
+# --- Section 4: normalisation behaviour -------------------------------------
+normalisation:
+  # PDF 4.1 says loss_ratio = ABS(loss) / deposit.
+  # In the source data a NEGATIVE loss = player net loss, POSITIVE = player net win.
+  # "abs" is spec-faithful but treats a big WIN as a big LOSS (see docs/DATA_NOTES.md).
+  # "net_loss" only counts genuine player losses. Both are computed; this picks the
+  # one used for scoring, the other is reported as a divergence warning.
+  loss_ratio_mode: abs          # abs | net_loss
+  flag_loss_sign_divergence: true
+  divergence_tolerance: 0.10    # report when the two modes differ by more than this
+
+# --- Section 5: Trigger scoring ---------------------------------------------
+triggers:
+  AML_AMOUNT_DEPOSIT_30D:                 {score: 8,  family: volume_escalation,   reason_de: "Der Spieler hat innerhalb von 30 Tagen 10.000 EUR oder mehr eingezahlt und der durchschnittliche Einsatzbetrag betraegt mehr als 80 Euro", reason_en: "Deposited >= EUR 10,000 in 30 days with average stake above EUR 80"}
+  AML_AMOUNT_DEPOSIT_180D:                {score: 10, family: volume_escalation,   reason_de: "Der Spieler hat innerhalb von 180 Tagen 20.000 EUR oder mehr eingezahlt", reason_en: "Deposited >= EUR 20,000 within 180 days"}
+  AML_LOW_GAMBLING_30D:                   {score: 20, family: low_gambling_low_loss, reason_de: "Die Relation der Einzahlungen und Einsaetze in 30 Tagen betraegt 20%, Mindesteinzahlung 2.000 EUR", reason_en: "Stake-to-deposit ratio 20% over 30 days, min deposit EUR 2,000"}
+  AML_LOW_GAMBLING_90D:                   {score: 15, family: low_gambling_low_loss, reason_de: "Die Relation der Einzahlungen und Einsaetze in 90 Tagen betraegt 20%, Mindesteinzahlung 5.000 EUR", reason_en: "Stake-to-deposit ratio 20% over 90 days, min deposit EUR 5,000"}
+  AML_LOW_LOSSES_30D:                     {score: 30, family: low_gambling_low_loss, reason_de: "30 Tage: durchschnittlicher Einsatz 80 EUR und Verlustrelation 10%, Mindestbetrag 2.000 EUR", reason_en: "30d: avg stake EUR 80 and loss ratio 10%, min amount EUR 2,000"}
+  AML_LOW_LOSSES_90D:                     {score: 34, family: low_gambling_low_loss, reason_de: "90 Tage: durchschnittlicher Einsatz 80 EUR und Verlustrelation 10%, Mindestbetrag 5.000 EUR", reason_en: "90d: avg stake EUR 80 and loss ratio 10%, min amount EUR 5,000"}
+  AML_MONEY_TRANSFER_LOW_GAMBLING_7D:     {score: 40, family: rapid_in_out,        reason_de: "7 Tage: Verlustrelation 10% bei Mindestein-/auszahlung von 2.000 EUR", reason_en: "7d: loss ratio 10% with min deposit/withdrawal EUR 2,000"}
+  AML_DEPOSIT_WITHOUT_BET_7D:             {score: 25, family: rapid_in_out,        reason_de: "Nach Einzahlung >= 1.000 EUR wurde 7 Tage lang kein Wetteinsatz getaetigt", reason_en: "No stake for 7 days after a deposit of >= EUR 1,000"}
+  AML_DEPOSIT_WITHOUT_BET_7D_10K:         {score: 45, family: rapid_in_out,        reason_de: "Nach Einzahlung >= 10.000 EUR wurde 7 Tage lang kein Wetteinsatz getaetigt", reason_en: "No stake for 7 days after a deposit of >= EUR 10,000"}
+  AML_HIGH_WINS_NO_GAMBLING_30D:          {score: 42, family: rapid_in_out,        reason_de: "30 Tage: Einsatz <= 5 EUR bei Auszahlungen >= 5.000 EUR", reason_en: "30d: stake <= EUR 5 while withdrawals >= EUR 5,000"}
+  AML_STAKE_INCREASE_7D:                  {score: 10, family: volume_escalation,   reason_de: "7 Tage: Einsatzbetrag 10-mal hoeher als der Wochendurchschnitt bei Mindesteinsatz 5.000 EUR", reason_en: "7d: stake 10x the weekly average with min stake EUR 5,000"}
+  AML_SAFE_SPORTS_BETS_30D:               {score: 20, family: safe_sports,         reason_de: "Quoten unter 1.2 bei Mindesteinsatz von 2.000 EUR ueber 30 Tage", reason_en: "Odds below 1.2 with min stake EUR 2,000 over 30 days"}
+  AML_SAFE_SPORTS_BETS_30D_10K:           {score: 36, family: safe_sports,         reason_de: "Quoten unter 1.1 bei Mindesteinsatz von 10.000 EUR ueber 30 Tage", reason_en: "Odds below 1.1 with min stake EUR 10,000 over 30 days"}
+  AML_MULTIPLE_PAYMENT_ACCOUNTS:          {score: 8,  family: payment_complexity,  reason_de: "Nutzung von mehr als 3 Zahlungsmitteln in 30 Tagen", reason_en: "More than 3 payment instruments used within 30 days"}
+  AML_FIRST_TIME_HIGH_RISK:               {score: 8,  family: recurrence,          reason_de: "Der Spieler ist zum ersten Mal als high risk eingestuft", reason_en: "Player classified as high risk for the first time"}
+  AML_AGAIN_HIGH_RISK:                    {score: 8,  family: recurrence,          reason_de: "Der Spieler ist wieder in das hohe AML-Risiko eingestuft", reason_en: "Player re-classified into high AML risk"}
+  AML_AMOUNT_DEPOSIT_DAY:                 {score: 8,  family: volume_escalation,   reason_de: "Tageseinzahlung 600 EUR (Alter 18-24 / 66+) bzw. 1.000 EUR (Alter 25-65)", reason_en: "Daily deposit EUR 600 (age 18-24/66+) or EUR 1,000 (age 25-65)"}
+  AML_SAFE_SPORTS_BET:                    {score: 30, family: safe_sports,         reason_de: "Quoten <= 1,1 und Einsatz von 1.000 EUR in einer einzigen Wetttransaktion", reason_en: "Odds <= 1.1 and EUR 1,000 stake in a single bet"}
+  AML_SAFE_SPORTS_BET_10K:                {score: 40, family: safe_sports,         reason_de: "Quoten <= 1,1 und Einsatz von 10.000 EUR in einer einzigen Wetttransaktion", reason_en: "Odds <= 1.1 and EUR 10,000 stake in a single bet"}
+
+# --- Sections 4.2 + 6: KPI definitions and scoring --------------------------
+# `expr` is evaluated against the metric namespace built in scoring/kpis.py.
+kpis:
+  KPI_HIGH_DEPOSIT_VOLUME:
+    score: 38
+    family: volume_escalation
+    expr: "deposit90d >= 50000 and deposit30d >= 15000"
+    reason_en: "Deposited >= EUR 50,000 in 90 days and >= EUR 15,000 in 30 days"
+  KPI_HIGH_WITHDRAWAL_VOLUME:
+    score: 38
+    family: rapid_in_out
+    expr: "withdrawal90d >= 50000 and withdrawal30d >= 15000"
+    reason_en: "Withdrew >= EUR 50,000 in 90 days and >= EUR 15,000 in 30 days"
+  KPI_LOW_GAMBLING_30D:
+    score: 16
+    family: low_gambling_low_loss
+    expr: "deposit30d >= 2000 and bet_dep_30d is not None and bet_dep_30d < 0.20"
+    reason_en: "Stakes below 20% of deposits over 30 days (deposits >= EUR 2,000)"
+  KPI_LOW_GAMBLING_90D:
+    score: 18
+    family: low_gambling_low_loss
+    expr: "deposit90d >= 5000 and bet_dep_90d is not None and bet_dep_90d < 0.20"
+    reason_en: "Stakes below 20% of deposits over 90 days (deposits >= EUR 5,000)"
+  KPI_HIGH_TURNOVER_VERY_LOW_LOSS_30D:
+    score: 26
+    family: low_gambling_low_loss
+    expr: "bet30d >= 10000 and loss_ratio_30d is not None and loss_ratio_30d <= 0.15"
+    reason_en: "30d turnover >= EUR 10,000 with loss ratio <= 15% of deposits"
+  KPI_VERY_HIGH_TURNOVER_LOW_LOSS_30D:
+    score: 30
+    family: low_gambling_low_loss
+    expr: "bet30d >= 20000 and loss_ratio_30d is not None and loss_ratio_30d <= 0.30"
+    reason_en: "30d turnover >= EUR 20,000 with loss ratio <= 30% of deposits"
+  KPI_VERY_HIGH_TURNOVER_LOW_LOSS_7D:
+    score: 24
+    family: low_gambling_low_loss
+    expr: "bet7d >= 5000 and loss_ratio_7d is not None and loss_ratio_7d <= 0.30"
+    reason_en: "7d turnover >= EUR 5,000 with loss ratio <= 30% of deposits"
+  KPI_HIGH_TURNOVER_LOW_LOSS_HIGH_PAYOUT_30D:
+    score: 36
+    family: rapid_in_out
+    expr: "bet30d >= 10000 and loss_ratio_30d is not None and loss_ratio_30d <= 0.15 and wd_dep_30d is not None and wd_dep_30d >= 0.70"
+    reason_en: "30d turnover >= EUR 10,000, loss ratio <= 15% and payout ratio >= 70% of deposits"
+  KPI_RAPID_IN_OUT_7D:
+    score: 38
+    family: rapid_in_out
+    expr: "deposit7d >= 2000 and wd_dep_7d is not None and wd_dep_7d >= 0.80 and bet_dep_7d is not None and bet_dep_7d <= 0.30"
+    reason_en: "7d deposits >= EUR 2,000 with payout ratio >= 80% and stake ratio <= 30%"
+  KPI_PERSISTENT_LOW_LOSS_HIGH_PAYOUT_90D:
+    score: 32
+    family: rapid_in_out
+    expr: "bet90d >= 30000 and loss_ratio_90d is not None and loss_ratio_90d <= 0.20 and wd_dep_90d is not None and wd_dep_90d >= 0.60"
+    reason_en: "90d turnover >= EUR 30,000, loss ratio <= 20% and payout ratio >= 60% of deposits"
+  KPI_CONSUMPTION_LAUNDERING_30D:
+    score: 32
+    family: consumption_laundering
+    expr: "bet30d >= 20000 and loss_ratio_30d is not None and loss_ratio_30d >= 0.80"
+    reason_en: "30d turnover >= EUR 20,000 with loss ratio >= 80% of deposits"
+  KPI_STAKE_ACCELERATION_7D:
+    score: 12
+    family: volume_escalation
+    expr: "bet7d >= 5000 and bet30d > 0 and bet7d >= 0.60 * bet30d"
+    reason_en: "7d turnover >= EUR 5,000 and >= 60% of the 30d turnover"
+
+# --- Section 7: family based scoring ----------------------------------------
+families:
+  low_gambling_low_loss:   {label: "Low Gambling / Low Loss"}
+  rapid_in_out:            {label: "Rapid In-Out / High Payout"}
+  safe_sports:             {label: "Safe Sports Betting"}
+  volume_escalation:       {label: "Volume / Escalation"}
+  payment_complexity:      {label: "Payment Complexity"}
+  recurrence:              {label: "Recurrence / Persistence"}
+  consumption_laundering:  {label: "Consumption Laundering / High Loss"}
+
+family_weights: [1.0, 0.5]     # 1st signal 100%, 2nd 50%, rest 0 (PDF 7.1)
+
+# --- Section 8 ---------------------------------------------------------------
+final_score:
+  cap: 100
+
+# --- Section 9: critical signals (hard rules) -------------------------------
+critical_signals:
+  - AML_DEPOSIT_WITHOUT_BET_7D_10K
+  - AML_HIGH_WINS_NO_GAMBLING_30D
+  - AML_MONEY_TRANSFER_LOW_GAMBLING_7D
+  - AML_SAFE_SPORTS_BET_10K
+  - KPI_HIGH_TURNOVER_LOW_LOSS_HIGH_PAYOUT_30D
+  - KPI_RAPID_IN_OUT_7D
+  - KPI_HIGH_DEPOSIT_VOLUME
+  - KPI_HIGH_WITHDRAWAL_VOLUME
+
+# --- Sections 10 + 11: review thresholds ------------------------------------
+thresholds:
+  both:      {review: 70, no_review: 40}   # 40..69 = grey zone -> MEDIUM
+  trigger:   {review: 45, no_review: 45}
+  highrisk:  {review: 50, no_review: 50}
+
+# --- Triage tiers (extension on top of the PDF's YES/NO decision) -----------
+# HIGH   -> critical signal OR score >= high_score
+# MEDIUM -> review required by the source threshold, or inside the grey zone
+# LOW    -> everything else
+triage:
+  high_score: 70
+  critical_forces_high: true
+  medium_uses_grey_zone: true
+  ticket_for_tiers: [HIGH, MEDIUM]
+  sla_hours: {HIGH: 24, MEDIUM: 72, LOW: 0}

@@ -1,0 +1,10 @@
+pandas>=2.0
+openpyxl>=3.1
+PyYAML>=6.0
+requests>=2.31
+fastapi>=0.110
+uvicorn[standard]>=0.27
+python-multipart>=0.0.9
+anthropic>=0.40           # only needed when explain_mode=anthropic
+APScheduler>=3.10         # Phase 5 scheduler
+pytest>=8.0               # dev

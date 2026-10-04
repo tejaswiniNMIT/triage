@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AML Triage Agent — Operator Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#10192B; --ink-2:#1B2A44; --paper:#EEF1F5; --surface:#fff;
+  --line:#D6DDE7; --line-strong:#B4C0D0; --text:#16202F; --muted:#5D6B80;
+  --accent:#0B6E75; --accent-soft:#E2F1F1;
+  --high:#B3261E; --high-bg:#FBE9E7; --medium:#B0740F; --medium-bg:#FDF3E0;
+  --low:#1E6B4F; --low-bg:#E6F3EC;
+  --canvas:#F6F8FB; --canvas-dot:#D2DBE6;
+  --radius:6px; --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--text);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,Segoe UI,sans-serif;font-size:14px;line-height:1.5}
+header{background:var(--ink);color:#EAF0F7;padding:14px 24px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+header h1{font-size:16px;font-weight:600;margin:0;letter-spacing:.02em}
+header .sub{font-family:var(--mono);font-size:11px;color:#8FA3BE;letter-spacing:.06em;text-transform:uppercase}
+header .spacer{flex:1}
+.badge{font-family:var(--mono);font-size:11px;padding:3px 8px;border:1px solid #33507A;border-radius:3px;color:#B7C8DE}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;background:#4CAF7D}
+main{max-width:1440px;margin:0 auto;padding:22px 24px 60px;display:grid;grid-template-columns:352px 1fr;gap:22px}
+@media(max-width:1080px){main{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius)}
+.card h2{margin:0;padding:12px 16px;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--muted);border-bottom:1px solid var(--line)}
+.card .body{padding:16px}
+label{display:block;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:0 0 5px}
+select,input[type=text],textarea{width:100%;padding:8px 10px;border:1px solid var(--line-strong);border-radius:4px;
+  background:#fff;font-family:inherit;font-size:13px;color:var(--text)}
+textarea{font-family:var(--mono);font-size:12px;min-height:64px}
+select:focus,input:focus,textarea:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.field{margin-bottom:14px}
+.hint{font-size:11px;color:var(--muted);margin-top:4px}
+.row{display:flex;gap:10px;align-items:center}
+button{font-family:inherit;font-size:13px;font-weight:600;border-radius:4px;cursor:pointer;border:1px solid transparent;padding:9px 14px}
+.btn-primary{background:var(--accent);color:#fff;width:100%}
+.btn-primary:hover{background:#095057}
+.btn-primary:disabled{background:#9FB4B6;cursor:not-allowed}
+.btn-ghost{background:#fff;border-color:var(--line-strong);color:var(--text)}
+.btn-ghost:hover{background:#F4F7FA}
+.drop{border:1.5px dashed var(--line-strong);border-radius:5px;padding:14px;text-align:center;color:var(--muted);
+  font-size:12px;cursor:pointer;background:#FBFCFE}
+.drop.over{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.filelist{margin-top:8px;font-family:var(--mono);font-size:11px;color:var(--text)}
+.filelist div{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dotted var(--line)}
+details summary{cursor:pointer;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.toggle{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);text-transform:none;letter-spacing:0;font-weight:400}
+
+/* signature element: the agent canvas — nodes, wires and capability sub-nodes */
+.chip{font-family:var(--mono);font-size:10px;letter-spacing:.06em;padding:2px 8px;border-radius:10px;
+  border:1px solid var(--line-strong);color:var(--muted);background:#fff;text-transform:none;white-space:nowrap}
+.chip.RUNNING{color:var(--accent);border-color:#A9CFD1;background:var(--accent-soft)}
+.chip.SUCCESS{color:var(--low);border-color:#BFDCCC;background:var(--low-bg)}
+.chip.FAILED{color:var(--high);border-color:#EBC3BF;background:var(--high-bg)}
+
+.cvwrap{overflow-x:auto;overflow-y:hidden;border-bottom:1px solid var(--line);background:var(--canvas);
+  background-image:radial-gradient(var(--canvas-dot) 1.1px,transparent 1.1px);
+  background-size:19px 19px;background-position:-9px -9px}
+.cv{position:relative;width:1004px;height:206px;margin:0 auto}
+.cv .wires{position:absolute;inset:0;overflow:visible;pointer-events:none}
+.cv .wires path{fill:none;stroke:var(--line-strong);stroke-width:1.6}
+.cv .wires path.hot{stroke:var(--accent)}
+.cv .wires path.live{stroke:var(--accent);stroke-dasharray:5 6;animation:cvdash .6s linear infinite}
+.cv .wires path.hang{stroke-dasharray:3 4;stroke-width:1.4}
+@keyframes cvdash{to{stroke-dashoffset:-22}}
+
+.nd{position:absolute;top:0}
+.nd .lab{height:22px;line-height:22px;font-size:11px;font-weight:600;letter-spacing:.02em;text-align:center;
+  white-space:nowrap;overflow:hidden}
+.nd .lab i{font-family:var(--mono);font-style:normal;font-size:9.5px;color:var(--muted);margin-right:4px}
+.nd .box{position:relative;height:72px;border-radius:11px;background:var(--surface);
+  border:1.5px solid var(--line-strong);box-shadow:0 1px 2px rgba(16,25,43,.07);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  transition:border-color .2s,box-shadow .2s,background .2s;cursor:default}
+.nd.trig .box{border-radius:34px 11px 11px 34px}
+.nd .box svg{width:23px;height:23px;fill:none;stroke:var(--line-strong);stroke-width:1.6;
+  stroke-linecap:round;stroke-linejoin:round;transition:stroke .2s}
+.nd .box .tm{font-family:var(--mono);font-size:9px;color:var(--muted);height:11px;line-height:11px}
+.nd .port,.nd .pb{position:absolute;width:9px;height:9px;border-radius:50%;background:var(--surface);
+  border:1.5px solid var(--line-strong);transition:all .2s}
+.nd .port{top:50%;margin-top:-4.5px} .nd .port.i{left:-5.5px} .nd .port.o{right:-5.5px}
+.nd .pb{bottom:-5.5px;left:50%;margin-left:-4.5px}
+.nd .bg{position:absolute;top:-7px;right:-7px;width:17px;height:17px;border-radius:50%;
+  border:2px solid var(--surface);display:none;align-items:center;justify-content:center;
+  font-size:10px;font-weight:700;line-height:1;color:#fff}
+
+.nd.done .box{border-color:var(--accent)} .nd.done .box svg{stroke:var(--accent)}
+.nd.done .port.o,.nd.done .pb{background:var(--accent);border-color:var(--accent)}
+.nd.done .bg{display:flex;background:var(--low)}
+.nd.active .box{border-color:var(--accent);animation:cvpulse 1.5s ease-in-out infinite}
+.nd.active .box svg{stroke:var(--accent)}
+.nd.active .port,.nd.active .pb{border-color:var(--accent)}
+.nd.active .bg{display:flex;background:var(--accent);animation:cvblink 1s ease-in-out infinite}
+.nd.failed .box{border-color:var(--high);background:var(--high-bg)} .nd.failed .box svg{stroke:var(--high)}
+.nd.failed .bg{display:flex;background:var(--high)}
+.nd.skipped .box{border-style:dashed;border-color:var(--medium)} .nd.skipped .box svg{stroke:var(--medium)}
+.nd.skipped .bg{display:flex;background:var(--medium)}
+@keyframes cvpulse{0%,100%{box-shadow:0 0 0 3px var(--accent-soft),0 2px 8px rgba(11,110,117,.14)}
+  50%{box-shadow:0 0 0 8px rgba(11,110,117,.09),0 2px 8px rgba(11,110,117,.14)}}
+@keyframes cvblink{0%,100%{opacity:1}50%{opacity:.4}}
+
+.cvsub{position:absolute;width:118px;padding:6px 9px;border-radius:9px;background:var(--surface);
+  border:1px dashed var(--line-strong);display:flex;align-items:center;gap:7px;
+  box-shadow:0 1px 2px rgba(16,25,43,.05)}
+.cvsub svg{width:14px;height:14px;flex:none;fill:none;stroke:var(--muted);stroke-width:1.7;
+  stroke-linecap:round;stroke-linejoin:round}
+.cvsub .k{font-size:8.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);line-height:1.35}
+.cvsub .v{font-family:var(--mono);font-size:10.5px;font-weight:600;line-height:1.35;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cvsub.on{border-style:solid;border-color:var(--accent)} .cvsub.on svg{stroke:var(--accent)}
+.wlab{position:absolute;transform:translate(-50%,-50%);font-family:var(--mono);font-size:9px;
+  color:var(--muted);background:var(--canvas);padding:1px 4px;border-radius:9px;
+  border:1px solid var(--line);white-space:nowrap}
+.wlab.on{color:var(--accent);border-color:#A9CFD1;background:var(--accent-soft)}
+@media (prefers-reduced-motion:reduce){.nd.active .box,.nd.active .bg,.cv .wires path.live{animation:none}}
+
+.counters{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:10px;padding:6px 16px 16px}
+.counter{border:1px solid var(--line);border-radius:5px;padding:10px 12px}
+.counter .v{font-family:var(--mono);font-size:24px;font-weight:600;line-height:1.1}
+.counter .k{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:2px}
+.counter.high{background:var(--high-bg);border-color:#EBC3BF} .counter.high .v{color:var(--high)}
+.counter.medium{background:var(--medium-bg);border-color:#EDD6A8} .counter.medium .v{color:var(--medium)}
+.counter.low{background:var(--low-bg);border-color:#BFDCCC} .counter.low .v{color:var(--low)}
+.bar{display:flex;height:8px;border-radius:4px;overflow:hidden;margin:16px 16px 14px;background:var(--line)}
+.bar span{display:block;height:100%}
+.log{font-family:var(--mono);font-size:12px;max-height:230px;overflow:auto;border-top:1px solid var(--line)}
+.log div{display:grid;grid-template-columns:78px 92px 1fr;gap:10px;padding:6px 16px;border-bottom:1px solid #EEF1F5}
+.log .t{color:var(--muted)}
+.st-SUCCESS{color:var(--low);font-weight:600} .st-RUNNING{color:var(--accent);font-weight:600}
+.st-FAILED{color:var(--high);font-weight:600} .st-SKIPPED{color:var(--medium);font-weight:600}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{text-align:left;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+  padding:8px 16px;border-bottom:1px solid var(--line);font-weight:600}
+td{padding:8px 16px;border-bottom:1px solid #EEF1F5;font-family:var(--mono);font-size:12px}
+tbody tr:hover{background:#F7FAFC;cursor:pointer}
+.pill{display:inline-block;padding:1px 7px;border-radius:3px;font-size:10.5px;font-weight:600;letter-spacing:.04em}
+.pill.SUCCESS{background:var(--low-bg);color:var(--low)} .pill.RUNNING{background:var(--accent-soft);color:var(--accent)}
+.pill.FAILED{background:var(--high-bg);color:var(--high)} .pill.PENDING{background:#EEF1F5;color:var(--muted)}
+.pill.HIGH{background:var(--high-bg);color:var(--high)} .pill.MEDIUM{background:var(--medium-bg);color:var(--medium)}
+.alert{margin:0 16px 16px;padding:10px 12px;border-radius:5px;background:var(--high-bg);border:1px solid #EBC3BF;
+  color:var(--high);font-size:12.5px;font-family:var(--mono)}
+.empty{padding:26px 16px;color:var(--muted);font-size:13px;text-align:center}
+.stack{display:flex;flex-direction:column;gap:22px}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>AML Triage Agent</h1>
+    <div class="sub">Watchlist intake · scoring · analyst handoff</div>
+  </div>
+  <div class="spacer"></div>
+  <span class="badge" id="fw">framework —</span>
+  <span class="badge" id="prof">profile —</span>
+  <span class="badge"><span class="dot"></span><span id="health">checking</span></span>
+</header>
+
+<main>
+  <!-- ── configuration ─────────────────────────────────────────── -->
+  <section class="card" style="align-self:start">
+    <h2>Run configuration</h2>
+    <div class="body">
+      <div class="field">
+        <label for="source">Where the watchlist comes from</label>
+        <select id="source"></select>
+        <div class="hint" id="sourceHint">The agent watches this mailbox for the sender below.</div>
+      </div>
+
+      <div class="field" id="senderField">
+        <label for="sender">Only accept mail from</label>
+        <input type="text" id="sender" placeholder="aml-reporting@operator.example">
+      </div>
+
+      <div class="field">
+        <label>Attach files instead</label>
+        <div class="drop" id="drop">Drop Mailexcel1 / Mailexcel2 here, or click to browse<br>
+          <span style="font-size:11px">.csv · .xlsx — trigger list and high-risk list, in any order</span></div>
+        <input type="file" id="files" multiple accept=".csv,.xlsx,.xls" hidden>
+        <div class="filelist" id="filelist"></div>
+      </div>
+
+      <div class="field">
+        <label for="sink">Where the triage workbook goes</label>
+        <select id="sink"></select>
+      </div>
+
+      <div class="field">
+        <label for="folder">Destination folder</label>
+        <input type="text" id="folder" value="AML/Triage">
+      </div>
+
+      <div class="field">
+        <label for="ticket">Ticket system for HIGH and MEDIUM cases</label>
+        <select id="ticket"></select>
+      </div>
+
+      <div class="field">
+        <label for="explain">Case narrative</label>
+        <select id="explain"></select>
+      </div>
+
+      <div class="field">
+        <label class="toggle"><input type="checkbox" id="dry"> Dry run — score only, deliver nothing</label>
+      </div>
+
+      <details>
+        <summary>Connection overrides</summary>
+        <div class="field"><label for="profile">Profile</label><select id="profile"></select></div>
+        <div class="field"><label for="srcCfg">Source config (JSON)</label><textarea id="srcCfg" placeholder='{"account_id":"...","folder_id":"..."}'></textarea></div>
+        <div class="field"><label for="sinkCfg">Destination config (JSON)</label><textarea id="sinkCfg" placeholder='{"folder_id":"..."}'></textarea></div>
+        <div class="field"><label for="tktCfg">Ticket config (JSON)</label><textarea id="tktCfg" placeholder='{"base_url":"https://site.atlassian.net","project_key":"AML"}'></textarea></div>
+      </details>
+
+      <button class="btn-primary" id="run">Run triage now</button>
+      <div class="hint" id="runHint">Scheduled polling continues in the background.</div>
+    </div>
+  </section>
+
+  <!-- ── status ────────────────────────────────────────────────── -->
+  <div class="stack">
+    <section class="card">
+      <h2 style="display:flex;align-items:center;gap:10px">Current run
+        <span id="runId" style="font-family:var(--mono);text-transform:none;letter-spacing:0;color:var(--text)"></span>
+        <span class="chip" id="flowStat" style="margin-left:auto">idle</span></h2>
+      <div class="cvwrap"><div class="cv" id="flow"></div></div>
+      <div class="bar" id="bar" hidden></div>
+      <div class="counters" id="counters"></div>
+      <div id="alert"></div>
+      <div class="row" style="padding:0 16px 16px" id="actions"></div>
+      <div class="log" id="log"></div>
+    </section>
+
+    <section class="card">
+      <h2>Tickets raised</h2>
+      <div id="tickets"><div class="empty">No tickets yet. HIGH and MEDIUM cases are raised automatically once a run completes.</div></div>
+    </section>
+
+    <section class="card">
+      <h2>Run history</h2>
+      <div id="history"><div class="empty">No runs recorded yet.</div></div>
+    </section>
+  </div>
+</main>
+
+<script>
+/* ── canvas model: one node per pipeline step, sub-nodes for the pluggable bits ── */
+const NODES=[
+  {k:"fetch",    n:"Fetch",    ic:"mail",   sub:["source","Source",     "mail"]},
+  {k:"parse",    n:"Parse",    ic:"table"},
+  {k:"score",    n:"Score",    ic:"gauge",  sub:["rules", "Ruleset",    "rules"]},
+  {k:"explain",  n:"Explain",  ic:"spark",  sub:["model", "Narrative",  "chip"]},
+  {k:"workbook", n:"Workbook", ic:"sheet"},
+  {k:"deliver",  n:"Deliver",  ic:"upload", sub:["sink",  "Destination","folder"]},
+  {k:"tickets",  n:"Tickets",  ic:"ticket", sub:["ticket","Tracker",    "tag"]}];
+
+/* canvas geometry, in px. label row 0-22, node box 22-94, sub-node row from 150. */
+const G={x0:24,pitch:146,w:78,rail:58,bot:94,subTop:150,subW:118,cw:1004,ch:206};
+const CX=i=>G.x0+G.pitch*i+G.w/2;
+
+const IC={
+ mail:'<rect x="2.5" y="5" width="19" height="14" rx="2.2"/><path d="m3.6 6.9 8.4 6 8.4-6"/>',
+ table:'<rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="M3 9.5h18M3 14.5h18M9.5 9.5v10M15 9.5v10"/>',
+ gauge:'<path d="M3.5 18a8.5 8.5 0 1 1 17 0"/><path d="m12 18 4.6-6.4"/><circle cx="12" cy="18" r="1.5"/>',
+ spark:'<path d="M10.6 3.3 12.3 8 17 9.7 12.3 11.4 10.6 16.1 8.9 11.4 4.2 9.7 8.9 8 10.6 3.3Z"/>'+
+       '<path d="M17.8 15.2l.85 2.15 2.15.85-2.15.85-.85 2.15-.85-2.15-2.15-.85 2.15-.85.85-2.15Z"/>',
+ sheet:'<path d="M6.5 3h7l5 5v12.5A1.5 1.5 0 0 1 17 22H6.5A1.5 1.5 0 0 1 5 20.5v-16A1.5 1.5 0 0 1 6.5 3Z"/>'+
+       '<path d="M13.5 3v5h5"/><path d="M8.5 12.5h7M8.5 16.5h7M12 12.5v4"/>',
+ upload:'<path d="M7 18.6A4.3 4.3 0 0 1 6.5 10a5.8 5.8 0 0 1 11-1.1 4 4 0 0 1 .7 7.8"/>'+
+        '<path d="M12 21.2v-8.6"/><path d="M9.4 15.2 12 12.6l2.6 2.6"/>',
+ ticket:'<rect x="2.8" y="6.5" width="18.4" height="11" rx="2"/><path d="M8 6.5v11"/>'+
+        '<path d="M11.5 10.5h6M11.5 13.5h4"/>',
+ rules:'<path d="M6 4v16M12 4v16M18 4v16"/><circle cx="6" cy="9" r="2"/><circle cx="12" cy="15" r="2"/><circle cx="18" cy="8" r="2"/>',
+ chip:'<rect x="7" y="7" width="10" height="10" rx="2.5"/><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/>',
+ folder:'<path d="M3 7.5A2 2 0 0 1 5 5.5h3.6l2 2.2H19a2 2 0 0 1 2 2v7.3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7.5Z"/>',
+ tag:'<path d="M3.5 12.5 12 4h8.5v8.5L12 21 3.5 12.5Z"/><circle cx="16.6" cy="7.9" r="1.5"/>'};
+
+/* connector keys -> short labels that fit inside a sub-node */
+const SHORT={zoho_mail:"Zoho Mail",outlook_graph:"Outlook 365",imap:"Generic IMAP",manual_upload:"Manual upload",
+ zoho_workdrive:"Zoho WorkDrive",zoho_workdrive_mail:"WorkDrive + alert",sharepoint:"SharePoint",
+ teams:"Teams channel",outlook_mail:"Email to analysts",
+ local:"Local folder",jira:"Jira",gitlab:"GitLab",odoo:"Odoo Helpdesk",mock:"Dry-run log",
+ template:"Template",anthropic:"Claude"};
+
+const POLL_MS=350;    // a template-mode run finishes in ~1s - poll fast or the flow is a blur
+let CURRENT=null, TIMER=null, FILES=[], FRAMEWORK="", LASTRUN=null, MISSES=0;
+
+const $=id=>document.getElementById(id);
+const fill=(el,items,sel)=>{el.innerHTML=items.map(o=>`<option value="${o.key}"${o.key===sel?" selected":""}>${o.label}</option>`).join("")};
+
+async function boot(){
+  const o=await (await fetch("/api/options")).json();
+  fill($("source"),o.sources,"manual_upload"); fill($("sink"),o.sinks,"local");
+  fill($("ticket"),o.tickets,"mock"); fill($("explain"),o.explain_modes,"template");
+  $("profile").innerHTML=o.profiles.map(p=>`<option>${p}</option>`).join("");
+  FRAMEWORK=o.framework_version;
+  $("fw").textContent="framework v"+o.framework_version;
+  $("source").onchange=sourceChanged; sourceChanged();
+  // the canvas mirrors the form until a run is selected
+  ["source","sink","ticket","explain"].forEach(id=>
+    $(id).addEventListener("change",()=>{if(!LASTRUN) renderFlow(null)}));
+  try{const h=await (await fetch("/api/health")).json();
+      $("prof").textContent="profile "+h.profile;
+      const bad=Object.values(h.connectors).filter(c=>!c.ok).length;
+      $("health").textContent=bad?`${bad} connector issue(s)`:"connectors ready";
+      if(bad) document.querySelector(".dot").style.background="#D9A420";
+  }catch(e){$("health").textContent="control plane only"}
+  renderFlow(null); refreshHistory(); setInterval(refreshHistory,8000);
+  setInterval(watchForNewRuns,3000);
+}
+
+/* The worker starts runs on its own when mail arrives. Without this the console would
+   sit on the last run it was told about and the new one would only show up in the
+   history list - so poll for a newer run id while idle and adopt it. */
+async function watchForNewRuns(){
+  if(TIMER) return;                                   // already following a live run
+  try{
+    const runs=await (await fetch("/api/runs")).json();
+    if(!runs.length || runs[0].run_id===CURRENT) return;
+    CURRENT=runs[0].run_id; MISSES=0; poll();
+  }catch(e){/* control plane restarting - try again on the next tick */}
+}
+function sourceChanged(){
+  const manual=$("source").value==="manual_upload";
+  $("senderField").style.display=manual?"none":"block";
+  $("sourceHint").textContent=manual
+    ? "Attach the two watchlist files below."
+    : "The agent watches this mailbox and reads only mail from the sender below.";
+}
+
+/* file attach */
+const drop=$("drop");
+drop.onclick=()=>$("files").click();
+drop.ondragover=e=>{e.preventDefault();drop.classList.add("over")};
+drop.ondragleave=()=>drop.classList.remove("over");
+drop.ondrop=e=>{e.preventDefault();drop.classList.remove("over");addFiles(e.dataTransfer.files)};
+$("files").onchange=e=>addFiles(e.target.files);
+function addFiles(list){
+  for(const f of list) FILES.push(f);
+  $("filelist").innerHTML=FILES.map((f,i)=>
+    `<div><span>${f.name}</span><span>${(f.size/1024).toFixed(0)} KB
+     <a href="#" data-i="${i}" style="color:var(--high);margin-left:8px;text-decoration:none">remove</a></span></div>`).join("");
+  $("filelist").querySelectorAll("a").forEach(a=>a.onclick=e=>{
+    e.preventDefault();FILES.splice(+a.dataset.i,1);addFiles([])});
+}
+
+/* start a run */
+$("run").onclick=async()=>{
+  const fd=new FormData();
+  fd.append("source",$("source").value); fd.append("sink",$("sink").value);
+  fd.append("ticket_system",$("ticket").value); fd.append("explain_mode",$("explain").value);
+  fd.append("profile",$("profile").value); fd.append("sender_filter",$("sender").value);
+  fd.append("remote_folder",$("folder").value); fd.append("dry_run",$("dry").checked?"true":"false");
+  fd.append("source_config_json",$("srcCfg").value); fd.append("sink_config_json",$("sinkCfg").value);
+  fd.append("ticket_config_json",$("tktCfg").value);
+  FILES.forEach(f=>fd.append("uploads",f,f.name));
+  $("run").disabled=true; $("run").textContent="Starting…";
+  const r=await fetch("/api/runs",{method:"POST",body:fd});
+  if(!r.ok){const e=await r.json().catch(()=>({detail:"Request rejected"}));
+    $("runHint").textContent=e.detail; armRun(); return}
+  const body=await r.json().catch(()=>({}));
+  // the API pre-registers the run and returns its id, so we follow THAT run - never
+  // "whatever is first in the list", which used to latch onto an older finished run.
+  CURRENT=body.run_id||null; MISSES=0;
+  $("runHint").textContent=body.run_id?`Watching ${body.run_id}…`:"Run accepted. Watching progress…";
+  poll();
+};
+
+const armRun=()=>{$("run").disabled=false;$("run").textContent="Run triage now"};
+
+async function poll(){
+  clearTimeout(TIMER); TIMER=null;   // must clear the handle too - watchForNewRuns tests it
+  let run=null;
+  if(CURRENT){
+    const r=await fetch("/api/runs/"+encodeURIComponent(CURRENT));
+    if(r.ok){run=await r.json(); MISSES=0}
+    else if(++MISSES<=15){TIMER=setTimeout(poll,POLL_MS); return}   // not registered yet
+    else{CURRENT=null; MISSES=0}
+  }
+  if(!run){
+    const runs=await (await fetch("/api/runs")).json();
+    if(!runs.length){armRun(); return}
+    run=runs[0]; CURRENT=run.run_id;                                // newest first, API-sorted
+  }
+  render(run);
+  if(run.status==="RUNNING"||run.status==="PENDING") TIMER=setTimeout(poll,POLL_MS);
+  else{armRun(); refreshHistory()}
+}
+
+const esc=s=>String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");
+
+/* the pipeline reports the failing stage as a synthetic "pipeline" step, so a node
+   left RUNNING on a FAILED run is the one that blew up - paint it red, not spinning. */
+const dur=ms=>ms==null?"":ms<1000?ms+"ms":(ms/1000).toFixed(ms<10000?1:0)+"s";
+
+function stateOf(steps,k,runFailed){
+  const mine=steps.filter(s=>s.name===k), last=mine[mine.length-1];
+  if(!last) return {cls:"",tm:"",tip:k+" — pending"};
+  const map={SUCCESS:"done",RUNNING:"active",FAILED:"failed",SKIPPED:"skipped"};
+  let cls=map[last.status]||"";
+  if(cls==="active"&&runFailed) cls="failed";
+  const t0=mine.find(s=>s.status==="RUNNING");
+  const ms=(t0&&last!==t0)?Date.parse(last.at)-Date.parse(t0.at):null;
+  const clock=(last.at||"").slice(11,19);
+  return {cls, tm:(cls==="active"||ms==null)?clock:dur(ms),
+          tip:`${last.status} at ${clock}${ms==null?"":" ("+dur(ms)+")"} — ${last.detail||"no detail"}`};
+}
+
+/* sub-node values: a finished run shows what IT ran with, an idle canvas mirrors the form */
+function subValues(run){
+  const snap=(run&&run.config_snapshot)||{};
+  const pick=(key,id)=>snap[key]||(($(id)||{}).value||"");
+  const lbl=v=>SHORT[v]||v||"—";
+  return {source:lbl(pick("source","source")), rules:"framework "+(FRAMEWORK?"v"+FRAMEWORK:"—"),
+          model:lbl(pick("explain_mode","explain")), sink:lbl(pick("sink","sink")),
+          ticket:lbl(pick("ticket_system","ticket"))};
+}
+
+/* n8n-style item counts riding on the wires */
+function wireText(run){
+  const c=(run&&run.counts)||{}, steps=(run&&run.steps)||[];
+  const f=steps.filter(s=>s.name==="fetch"&&Array.isArray(s.files)).pop();
+  const nf=f?f.files.length:0, t=c.total||0, cand=(c.HIGH||0)+(c.MEDIUM||0);
+  return [nf?`${nf} file${nf===1?"":"s"}`:"", t?`${t} players`:"", t?`${t} scored`:"",
+          t?`${t} notes`:"", (run&&run.workbook_path)?"1 workbook":"", t?`${cand} cases`:""];
+}
+
+function renderFlow(run){
+  LASTRUN=run;
+  const steps=(run&&run.steps)||[], bad=!!run&&run.status==="FAILED";
+  const S=NODES.map(n=>stateOf(steps,n.k,bad));
+  const sv=subValues(run), wt=wireText(run);
+  let wires="", labels="", nodes="";
+  NODES.forEach((n,i)=>{
+    const st=S[i], x=G.x0+G.pitch*i;
+    if(i<NODES.length-1){                                     // wire to the next node
+      const a=x+G.w, b=G.x0+G.pitch*(i+1);
+      const cls=st.cls==="done"?(S[i+1].cls==="active"?"live":"hot"):"";
+      wires+=`<path class="${cls}" d="M${a} ${G.rail}H${b}" marker-end="url(#${cls?"aha":"ahg"})"/>`;
+      if(wt[i]) labels+=`<div class="wlab${cls?" on":""}" `+
+        `style="left:${(a+b)/2}px;top:${G.rail-15}px">${wt[i]}</div>`;
+    }
+    if(n.sub){                                                // capability sub-node below
+      const [key,kick,icon]=n.sub, on=st.cls==="done"||st.cls==="active";
+      wires+=`<path class="hang${on?" hot":""}" d="M${CX(i)} ${G.bot}V${G.subTop}"/>`;
+      nodes+=`<div class="cvsub${on?" on":""}" style="left:${CX(i)-G.subW/2}px;top:${G.subTop}px">`+
+        `<svg viewBox="0 0 24 24">${IC[icon]}</svg><div style="min-width:0">`+
+        `<div class="k">${kick}</div><div class="v" title="${esc(sv[key])}">${esc(sv[key])}</div></div></div>`;
+    }
+    const mark={done:"&check;",failed:"!",skipped:"&ndash;",active:""}[st.cls]||"";
+    nodes+=`<div class="nd ${st.cls}${i?"":" trig"}" style="left:${x}px;width:${G.w}px" title="${esc(st.tip)}">`+
+      `<div class="lab"><i>${String(i+1).padStart(2,"0")}</i>${n.n}</div><div class="box">`+
+      (i?'<span class="port i"></span>':"")+'<span class="port o"></span>'+
+      (n.sub?'<span class="pb"></span>':"")+`<span class="bg">${mark}</span>`+
+      `<svg viewBox="0 0 24 24">${IC[n.ic]}</svg><span class="tm">${st.tm}</span></div></div>`;
+  });
+  const done=S.filter(s=>s.cls==="done").length;
+  const total=(run&&run.started_at&&run.finished_at)
+    ? dur(Date.parse(run.finished_at)-Date.parse(run.started_at)) : "";
+  $("flowStat").className="chip "+(run?run.status:"");
+  $("flowStat").textContent=`${run?run.status:"idle"} · ${done}/${NODES.length}`+(total?" · "+total:"");
+  const arrow=c=>`<marker id="ah${c[0]}" viewBox="0 0 8 8" refX="6.5" refY="4" markerWidth="5.5" `+
+    `markerHeight="5.5" orient="auto"><path d="M1.5 1.5 6 4 1.5 6.5" fill="none" stroke="${c[1]}" `+
+    `stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>`;
+  $("flow").innerHTML=`<svg class="wires" viewBox="0 0 ${G.cw} ${G.ch}" width="${G.cw}" height="${G.ch}">`+
+    `<defs>${arrow(["g","#B4C0D0"])}${arrow(["a","#0B6E75"])}</defs>${wires}</svg>${labels}${nodes}`;
+}
+
+function render(run){
+  $("runId").textContent=run.run_id+" · "+run.trigger_type;
+  renderFlow(run);
+  const c=run.counts||{};
+  const cells=[["total","Population","" ],["HIGH","High risk","high"],["MEDIUM","Medium risk","medium"],
+               ["LOW","Low risk","low"],["critical","Critical signal",""],["review_yes","Manual review",""]];
+  $("counters").innerHTML=cells.map(([k,label,cls])=>
+    `<div class="counter ${cls}"><div class="v">${c[k]??"—"}</div><div class="k">${label}</div></div>`).join("");
+  const tot=(c.HIGH||0)+(c.MEDIUM||0)+(c.LOW||0);
+  $("bar").hidden=!tot;
+  if(tot) $("bar").innerHTML=[["HIGH","var(--high)"],["MEDIUM","var(--medium)"],["LOW","var(--low)"]]
+    .map(([k,col])=>`<span style="width:${(c[k]||0)/tot*100}%;background:${col}" title="${k}: ${c[k]||0}"></span>`).join("");
+  $("alert").innerHTML=run.error?`<div class="alert">${run.error}</div>`:"";
+  const acts=[];
+  if(run.workbook_path) acts.push(`<a href="/api/runs/${run.run_id}/download"><button class="btn-ghost">Download workbook</button></a>`);
+  if(run.workbook_url&&run.workbook_url.startsWith("http")) acts.push(`<a href="${run.workbook_url}" target="_blank"><button class="btn-ghost">Open in destination</button></a>`);
+  $("actions").innerHTML=acts.join("");
+  $("log").innerHTML=(run.steps||[]).slice().reverse().map(s=>
+    `<div><span class="t">${s.at.slice(11,19)}</span><span class="st-${s.status}">${s.status}</span>
+     <span>${s.name} — ${(s.detail||"").replace(/</g,"&lt;")}</span></div>`).join("");
+  const t=run.tickets||[];
+  $("tickets").innerHTML=t.length?`<table><thead><tr><th>Player</th><th>Tier</th><th>System</th><th>Ticket</th><th>Status</th></tr></thead><tbody>`+
+    t.map(x=>`<tr onclick="${x.url&&x.url.startsWith('http')?`window.open('${x.url}')`:''}">
+      <td>${x.player_id}</td><td><span class="pill ${x.tier}">${x.tier}</span></td>
+      <td>${x.system||"—"}</td><td>${x.ticket_id||"—"}</td><td>${x.error?"<span style='color:var(--high)'>"+x.error.slice(0,60)+"</span>":x.status}</td></tr>`).join("")+
+    `</tbody></table>`:`<div class="empty">No tickets yet.</div>`;
+}
+
+async function refreshHistory(){
+  const runs=await (await fetch("/api/runs")).json();
+  if(!runs.length) return;
+  $("history").innerHTML=`<table><thead><tr><th>Run</th><th>Started</th><th>Trigger</th><th>Status</th>
+    <th>High</th><th>Med</th><th>Low</th><th>Tickets</th></tr></thead><tbody>`+
+    runs.slice(0,12).map(r=>`<tr onclick="CURRENT='${r.run_id}';poll()">
+      <td>${r.run_id}</td><td>${(r.started_at||"").slice(0,19).replace("T"," ")}</td>
+      <td>${r.trigger_type}</td><td><span class="pill ${r.status}">${r.status}</span></td>
+      <td>${r.counts?.HIGH??"—"}</td><td>${r.counts?.MEDIUM??"—"}</td><td>${r.counts?.LOW??"—"}</td>
+      <td>${(r.tickets||[]).length}</td></tr>`).join("")+`</tbody></table>`;
+  if(!CURRENT){CURRENT=runs[0].run_id;render(runs[0])}
+}
+boot();
+</script>
+</body>
+</html>
